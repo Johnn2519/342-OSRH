@@ -133,6 +133,12 @@ ALTER TABLE [dbo].[BILLINGS] WITH CHECK ADD CONSTRAINT [FK_SERVICEBIL] FOREIGN K
 --other alterations
 
 --USER
+-- widen password column to fit hashed values
+IF COALESCE(COL_LENGTH('dbo.USER','password'),0) < 510
+BEGIN
+	ALTER TABLE [dbo].[USER] ALTER COLUMN [password] NVARCHAR(255) NOT NULL;
+END
+
 --dob in the past
 ALTER TABLE [dbo].[USER] ADD CONSTRAINT [DOB_PAST] CHECK( [dob]<=CONVERT(date, GETDATE()) )
 
@@ -143,7 +149,11 @@ ALTER TABLE [dbo].[USER] ADD CONSTRAINT [DRIVER_ADULT] CHECK( [userType]<>3 OR [
 ALTER TABLE [dbo].[USER] ADD CONSTRAINT [EMAIL_FORMAT] CHECK ( [email] LIKE '%_@_%._%' )
 
 --phone number format
-ALTER TABLE [dbo].[USER] ADD CONSTRAINT [PHONE_FORMAT] CHECK ( [phone] LIKE '+%' AND [phone] NOT LIKE '%[^0-9+]%' )
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE [name]='PHONE_FORMAT' AND parent_object_id=OBJECT_ID('[dbo].[USER]'))
+BEGIN
+	ALTER TABLE [dbo].[USER] DROP CONSTRAINT [PHONE_FORMAT];
+END
+ALTER TABLE [dbo].[USER] ADD CONSTRAINT [PHONE_FORMAT] CHECK ( [phone] LIKE '+%' AND [phone] NOT LIKE '%[^0-9+() -]%' )
 
 
 --DOCVEH

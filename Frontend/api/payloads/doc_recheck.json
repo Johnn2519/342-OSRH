@@ -1,0 +1,7 @@
+{
+  "docID": 555,
+  "status": 2,
+  "comments": "Verified expiration date and authenticity.",
+  "byUserID": 42,
+  "notes": "byUserID must be a system worker (userType=2); enforced by trigger tr_CHECKEDBY_CHECKDOC."
+}

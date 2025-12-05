@@ -1,0 +1,9 @@
+{
+  "method": 1,
+  "from": 789,
+  "to": 0,
+  "subTrip": 456,
+  "price": 25.00,
+  "type": 1,
+  "notes": "Passenger-to-platform payment; trigger will auto-create driver payout with type=2. Date defaults to current."
+}

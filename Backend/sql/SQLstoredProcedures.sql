@@ -1,4 +1,3 @@
-
 --1 SUBTRIP
 CREATE PROCEDURE [dbo].[getAllSubTrips]
 AS
@@ -11,6 +10,7 @@ BEGIN
 	ORDER BY S.[trip];
 
 END;
+GO
 
 --1 TRIP
 CREATE PROCEDURE [dbo].[getAllTrips]
@@ -24,6 +24,7 @@ BEGIN
 	ORDER BY T.[tripID];
 
 END;
+GO
 
 --2 SUBTRIP
 CREATE PROCEDURE [dbo].[GetSubtripsByServiceType]
@@ -49,6 +50,7 @@ BEGIN
 	ORDER BY S.[trip], S.[subTripID];
 
 END;
+GO
 
 --2 TRIP
 CREATE PROCEDURE [dbo].[GetTripsByServiceType]
@@ -72,6 +74,7 @@ BEGIN
 	WHERE T.[serviceType]=@serviceTypeID
 	ORDER BY T.[tripID];
 END;
+GO
 
 --3 busy by month des
 CREATE PROCEDURE [dbo].[TripsByMonthDes]
@@ -85,6 +88,7 @@ BEGIN
 	GROUP BY YEAR(T.[startTime]), MONTH(T.[startTime])
 	ORDER BY [tripCount], [tripYear],[tripMonth];
 END;
+GO
 
 --2.1
 CREATE PROCEDURE [dbo].[avgCostServType]
@@ -98,6 +102,7 @@ BEGIN
 	GROUP BY ST.[serviceTypeID], ST.[name]
 	ORDER BY ST.[serviceTypeID];
 END;
+GO
 
 --2.2
 CREATE PROCEDURE [dbo].[highLowCostTrips]
@@ -125,3 +130,4 @@ BEGIN
 	WHERE TT.totalCost=CS.maxCost OR TT.totalCost=CS.minCost
 	ORDER BY TT.totalCost DESC;
 END;
+GO

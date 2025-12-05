@@ -1,0 +1,8 @@
+{
+  "subTrip": 456,
+  "from": 789,
+  "to": 123,
+  "comment": "Ride was smooth and on time.",
+  "rating": 5,
+  "notes": "Triggers update ratings and enforces max two feedbacks per subTrip. entryDate defaults in DB."
+}

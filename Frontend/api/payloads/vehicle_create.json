@@ -1,0 +1,20 @@
+{
+  "insuranceNum": 123456,
+  "plate": 98765,
+  "vehType": 2,
+  "geoID": 4,
+  "seatNum": 4,
+  "kgCapacity": 200.5,
+  "volCapacity": 1.25,
+  "available": false,
+  "ready": false,
+  "doc": {
+    "path": "uploads/documents/insurance-98765.pdf",
+    "issued": "2025-01-01",
+    "expires": "2026-01-01",
+    "docType": 1,
+    "status": 1,
+    "checkedBy": null,
+    "notes": "docType should reference an insurance entry in DOCTYPE; status must exist in DOCSTATUS."
+  }
+}

@@ -1,6 +1,15 @@
 <?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/connect.php';
+
 $regError = null;
 $regSuccess = null;
+
+$pdo = getSqlServerConnection();
+$genders = $pdo->query('SELECT genderID, name FROM dbo.GENDER ORDER BY genderID')->fetchAll();
+$docStatuses = $pdo->query('SELECT docStatusID, name FROM dbo.DOCSTATUS ORDER BY docStatusID')->fetchAll();
+$docTypes = $pdo->query('SELECT docTypeID, name FROM dbo.DOCTYPE ORDER BY docTypeID')->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$firstName = trim($_POST['first_name'] ?? '');
@@ -12,39 +21,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$phone = trim($_POST['phone'] ?? '');
 	$email = trim($_POST['email'] ?? '');
 	$password = $_POST['password'] ?? '';
+	$docPath = trim($_POST['doc_path'] ?? '');
 	$dateIssued = trim($_POST['date_issued'] ?? '');
 	$expiryDate = trim($_POST['expiry_date'] ?? '');
-	// capture uploaded file names (if any)
-	$documentFileName = $_FILES['document_file']['name'] ?? '';
-	$criminalRecordFileName = $_FILES['criminal_record_file']['name'] ?? '';
-	$insuranceFileName = $_FILES['insurance_file']['name'] ?? '';
+	$docStatus = isset($_POST['doc_status']) ? (int) $_POST['doc_status'] : null;
+	$docType = isset($_POST['doc_type']) ? (int) $_POST['doc_type'] : null;
 
-	if ($firstName === '' || $lastName === '' || $username === '' || $dob === '' || $gender === '' || $address === '' || $phone === '' || $email === '' || $password === '' || $dateIssued === '' || $expiryDate === '') {
-		$regError = 'Please fill in all fields.';
+	if ($firstName === '' || $lastName === '' || $username === '' || $dob === '' || $gender === '' || $address === '' || $phone === '' || $email === '' || $password === '') {
+		$regError = 'Please fill in all required fields.';
 	} elseif (!preg_match('/^[a-zA-Z0-9]+$/', $username)) {
 		$regError = 'Username must contain only letters and numbers.';
-	} elseif (!DateTime::createFromFormat('Y-m-d', $dob)) {
-		$regError = 'Please enter a valid date of birth.';
-	} elseif (!in_array($gender, ['male', 'female', 'non-binary', 'other'])) {
-		$regError = 'Please select a valid gender.';
 	} else {
-		// Validate phone: allow digits, spaces, +, -, parentheses; require 7-15 digits
-		$phoneDigits = preg_replace('/\D/', '', $phone);
-		if (!preg_match('/^[0-9+\-\s\(\)]+$/', $phone) || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
-			$regError = 'Please enter a valid phone number (7–15 digits).';
-		} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-			$regError = 'Please enter a valid email address.';
-		} elseif (strlen($password) < 8) {
-			$regError = 'Password must be at least 8 characters long.';
-		} elseif (!DateTime::createFromFormat('Y-m-d', $dateIssued)) {
-			$regError = 'Please enter a valid date issued.';
-		} elseif (!DateTime::createFromFormat('Y-m-d', $expiryDate)) {
-			$regError = 'Please enter a valid expiry date.';
+		$dobObj = DateTime::createFromFormat('Y-m-d', $dob);
+		$dobValid = $dobObj && $dobObj->format('Y-m-d') === $dob;
+		if (!$dobValid) {
+			$regError = 'Please enter a valid date of birth.';
+		} elseif ($dobObj > new DateTime('today')) {
+			$regError = 'Date of birth must be in the past.';
 		} else {
-			// Simulate registration success (replace with actual database insertion)
-			$regSuccess = 'Registration successful. You can now log in.';
-			// Optionally redirect to login after a delay
-			// header('Refresh: 2; URL=index.php');
+			$phoneDigits = preg_replace('/\D/', '', $phone);
+			if (!preg_match('/^[0-9+\-\s\(\)]+$/', $phone) || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+				$regError = 'Please enter a valid phone number (7–15 digits).';
+			} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+				$regError = 'Please enter a valid email address.';
+			} elseif (strlen($password) < 8) {
+				$regError = 'Password must be at least 8 characters long.';
+			} else {
+				$genderId = null;
+				foreach ($genders as $g) {
+					if (strcasecmp($g['name'], $gender) === 0) {
+						$genderId = (int) $g['genderID'];
+						break;
+					}
+				}
+				$genderId = $genderId ?? (int) ($genders[0]['genderID'] ?? 1);
+
+				try {
+					$pdo->beginTransaction();
+					$stmt = $pdo->prepare('INSERT INTO dbo.[USER] (username, name, surname, dob, gender, email, address, phone, userType, password) VALUES (:username,:name,:surname,:dob,:gender,:email,:address,:phone,:userType,:password)');
+					$stmt->execute([
+						':username' => $username,
+						':name' => $firstName,
+						':surname' => $lastName,
+						':dob' => $dob,
+						':gender' => $genderId,
+						':email' => $email,
+						':address' => $address,
+						':phone' => $phone,
+						':userType' => 3,
+						':password' => $password,
+					]);
+					$driverId = (int) $pdo->lastInsertId();
+
+					if ($docPath !== '' && $dateIssued !== '' && $docType) {
+						$docStatus = $docStatus ?? (int) ($docStatuses[0]['docStatusID'] ?? 1);
+						$pdo->prepare('INSERT INTO dbo.DOCDRI (driverID, path, issued, expires, docType, checkedBy, status) VALUES (:driverID,:path,:issued,:expires,:docType,NULL,:status)')
+							->execute([
+								':driverID' => $driverId,
+								':path' => $docPath,
+								':issued' => $dateIssued,
+								':expires' => $expiryDate !== '' ? $expiryDate : null,
+								':docType' => $docType,
+								':status' => $docStatus,
+							]);
+					}
+
+					$pdo->commit();
+					$regSuccess = 'Registration successful. You can now log in.';
+				} catch (Throwable $e) {
+					$pdo->rollBack();
+					$regError = $e->getMessage();
+				}
+			}
 		}
 	}
 }
@@ -151,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		<?php elseif ($regSuccess): ?>
 			<p class="status success"><?= htmlspecialchars($regSuccess) ?></p>
 		<?php endif; ?>
-		<form method="post" action="" enctype="multipart/form-data">
+		<form method="post" action="">
 			<div>
 				<label for="username">Username</label>
 				<input type="text" id="username" name="username" placeholder="" required>
@@ -166,16 +214,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			</div>
 			<div>
 				<label for="dob">Date of Birth</label>
-				<input type="date" id="dob" name="dob" required>
+				<input type="date" id="dob" name="dob" max="<?= date('Y-m-d'); ?>" required>
 			</div>
 			<div>
 				<label for="gender">Gender</label>
 				<select id="gender" name="gender" required>
 					<option value="">Select Gender</option>
-					<option value="male">Male</option>
-					<option value="female">Female</option>
-					<option value="non-binary">Non-binary</option>
-					<option value="other">Other</option>
+					<?php foreach ($genders as $g): ?>
+						<option value="<?= htmlspecialchars($g['name'], ENT_QUOTES, 'UTF-8') ?>">
+							<?= htmlspecialchars($g['name'], ENT_QUOTES, 'UTF-8') ?></option>
+					<?php endforeach; ?>
 				</select>
 			</div>
 			<div>
@@ -195,44 +243,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				<input type="password" id="password" name="password" placeholder="" required>
 			</div>
 			<fieldset>
-				<legend>Documents</legend>
+				<legend>Optional initial document</legend>
 				<div>
-					<label for="document_file">Drivers License</label>
-					<input type="file" id="document_file" name="document_file" accept=".pdf,.jpg,.png">
+					<label for="doc_type">Document type</label>
+					<select id="doc_type" name="doc_type">
+						<option value="">Select</option>
+						<?php foreach ($docTypes as $dt): ?>
+							<option value="<?= (int) $dt['docTypeID'] ?>">
+								<?= htmlspecialchars($dt['name'], ENT_QUOTES, 'UTF-8') ?></option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+				<div>
+					<label for="doc_status">Status</label>
+					<select id="doc_status" name="doc_status">
+						<option value="">Select</option>
+						<?php foreach ($docStatuses as $ds): ?>
+							<option value="<?= (int) $ds['docStatusID'] ?>">
+								<?= htmlspecialchars($ds['name'], ENT_QUOTES, 'UTF-8') ?></option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+				<div>
+					<label for="doc_path">Path/label</label>
+					<input type="text" id="doc_path" name="doc_path" maxlength="200">
 				</div>
 				<div>
 					<label for="date_issued">Date Issued</label>
-					<input type="date" id="date_issued" name="date_issued" required>
+					<input type="date" id="date_issued" name="date_issued">
 				</div>
 				<div>
 					<label for="expiry_date">Expiry Date</label>
-					<input type="date" id="expiry_date" name="expiry_date" required>
-				</div>
-				<div style="margin: 1rem 0;"></div>
-				<div>
-					<label for="criminal_record_file">Criminal Record Certificate</label>
-					<input type="file" id="criminal_record_file" name="criminal_record_file" accept=".pdf,.jpg,.png">
-				</div>
-				<div>
-					<label for="date_issued">Date Issued</label>
-					<input type="date" id="date_issued" name="date_issued" required>
-				</div>
-				<div>
-					<label for="expiry_date">Expiry Date</label>
-					<input type="date" id="expiry_date" name="expiry_date" required>
-				</div>
-				<div style="margin: 1rem 0;"></div>
-				<div>
-					<label for="insurance_file">Insurance Coverage Certificate</label>
-					<input type="file" id="insurance_file" name="insurance_file" accept=".pdf,.jpg,.png">
-				</div>
-				<div>
-					<label for="date_issued">Date Issued</label>
-					<input type="date" id="date_issued" name="date_issued" required>
-				</div>
-				<div>
-					<label for="expiry_date">Expiry Date</label>
-					<input type="date" id="expiry_date" name="expiry_date" required>
+					<input type="date" id="expiry_date" name="expiry_date">
 				</div>
 			</fieldset>
 			<button type="submit">Register</button>

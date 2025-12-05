@@ -1,19 +1,25 @@
 <?php
-session_start();
+declare(strict_types=1);
 
-if (isset($_GET['dev_bypass'])) {
-	$target = $_GET['dev_bypass'];
-	if ($target === 'admin') {
-		$_SESSION['user'] = 'developer@local';
-		header('Location: admin.php');
-	} elseif ($target === 'user') {
-		header('Location: user.php');
-	} elseif ($target === 'driver') {
-		header('Location: driver.php');
-	} else {
-		header('Location: index.php');
-	}
-	exit;
+require_once __DIR__ . '/auth.php';
+
+auth_start_session();
+$user = auth_current_user();
+if ($user) {
+    switch ($user['role']) {
+        case 1:
+        case 2:
+            header('Location: admin.php');
+            break;
+        case 3:
+            header('Location: driver.php');
+            break;
+        case 4:
+            header('Location: user.php');
+            break;
+        default:
+    }
+    exit;
 }
 
 $loginError = null;
@@ -26,14 +32,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	if ($username === '' || $password === '') {
 		$loginError = 'Please enter both username and password.';
 	} else {
-		// Replace with real credential verification as needed.
-		$validUsers = ['demo@site.com' => 'password123'];
-
-		if (isset($validUsers[$username]) && hash_equals($validUsers[$username], $password)) {
-			$_SESSION['user'] = $username;
+		try {
+			$user = auth_login($username, $password);
 			$loginSuccess = 'Login successful. Redirecting...';
-			header('Refresh: 1; URL=admin.php');
-		} else {
+			switch ($user['role']) {
+				case 1:
+				case 2:
+					header('Location: admin.php');
+					break;
+				case 3:
+					header('Location: driver.php');
+					break;
+				case 4:
+					header('Location: user.php');
+					break;
+				default:
+					header('Location: admin.php');
+			}
+			exit;
+		} catch (Throwable $e) {
 			$loginError = 'Invalid credentials.';
 		}
 	}
@@ -144,8 +161,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		<?php endif; ?>
 		<form method="post" action="">
 			<div>
-				<label for="username">Email    </label>
-				<input type="email" id="username" name="username" placeholder="" required>
+				<label for="username">Username</label>
+				<input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" required>
 			</div>
 			<div>
 				<label for="password">Password</label>
@@ -159,12 +176,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 					style="color: #4a67f5; text-decoration: underline;">I want to be a driver</a>
 			</p>
 		</form>
-		<p class="dev-bypass">
-			Developer bypass:
-			<a href="?dev_bypass=admin">Admin</a>|
-			<a href="?dev_bypass=user">User</a>|
-			<a href="?dev_bypass=driver">Driver</a>
-		</p>
 	</div>
 </body>
 

@@ -1,46 +1,80 @@
 <?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/connect.php';
+
 $regError = null;
 $regSuccess = null;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firstName = trim($_POST['first_name'] ?? '');
-    $lastName = trim($_POST['last_name'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $dob = trim($_POST['dob'] ?? '');
-    $gender = $_POST['gender'] ?? '';
-    $address = trim($_POST['address'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+$pdo = getSqlServerConnection();
+$genders = $pdo->query('SELECT genderID, name FROM dbo.GENDER ORDER BY genderID')->fetchAll();
 
-    if ($firstName === '' || $lastName === '' || $username === '' || $dob === '' || $gender === '' || $address === '' || $phone === '' || $email === '' || $password === '') {
-        $regError = 'Please fill in all fields.';
-    } elseif (!preg_match('/^[a-zA-Z0-9]+$/', $username)) {
-        $regError = 'Username must contain only letters and numbers.';
-    } elseif (!DateTime::createFromFormat('Y-m-d', $dob)) {
-        $regError = 'Please enter a valid date of birth.';
-    } elseif (!in_array($gender, ['male', 'female', 'non-binary', 'other'])) {
-        $regError = 'Please select a valid gender.';
-    } else {
-        // Validate phone: allow digits, spaces, +, -, parentheses; require 7-15 digits
-        $phoneDigits = preg_replace('/\D/', '', $phone);
-        if (!preg_match('/^[0-9+\-\s\(\)]+$/', $phone) || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
-            $regError = 'Please enter a valid phone number (7–15 digits).';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $regError = 'Please enter a valid email address.';
-        } elseif (strlen($password) < 8) {
-            $regError = 'Password must be at least 8 characters long.';
-        } else {
-            // Simulate registration success (replace with actual database insertion)
-            $regSuccess = 'Registration successful. You can now log in.';
-            // Optionally redirect to login after a delay
-            // header('Refresh: 2; URL=index.php');
-        }
-    }
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+	$firstName = trim($_POST['first_name'] ?? '');
+	$lastName = trim($_POST['last_name'] ?? '');
+	$username = trim($_POST['username'] ?? '');
+	$dob = trim($_POST['dob'] ?? '');
+	$gender = $_POST['gender'] ?? '';
+	$address = trim($_POST['address'] ?? '');
+	$phone = trim($_POST['phone'] ?? '');
+	$email = trim($_POST['email'] ?? '');
+	$password = $_POST['password'] ?? '';
+
+	if ($firstName === '' || $lastName === '' || $username === '' || $dob === '' || $gender === '' || $address === '' || $phone === '' || $email === '' || $password === '') {
+		$regError = 'Please fill in all fields.';
+	} elseif (!preg_match('/^[a-zA-Z0-9]+$/', $username)) {
+		$regError = 'Username must contain only letters and numbers.';
+	} else {
+		$dobObj = DateTime::createFromFormat('Y-m-d', $dob);
+		$dobValid = $dobObj && $dobObj->format('Y-m-d') === $dob;
+		if (!$dobValid) {
+			$regError = 'Please enter a valid date of birth.';
+		} elseif ($dobObj > new DateTime('today')) {
+			$regError = 'Date of birth must be in the past.';
+		} else {
+			$phoneDigits = preg_replace('/\D/', '', $phone);
+			if (!preg_match('/^[0-9+\-\s\(\)]+$/', $phone) || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+				$regError = 'Please enter a valid phone number (7–15 digits).';
+			} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+				$regError = 'Please enter a valid email address.';
+			} elseif (strlen($password) < 8) {
+				$regError = 'Password must be at least 8 characters long.';
+			} else {
+				$genderId = null;
+				foreach ($genders as $g) {
+					if (strcasecmp($g['name'], $gender) === 0) {
+						$genderId = (int) $g['genderID'];
+						break;
+					}
+				}
+				$genderId = $genderId ?? (int) ($genders[0]['genderID'] ?? 1);
+
+				try {
+					$stmt = $pdo->prepare('INSERT INTO dbo.[USER] (username, name, surname, dob, gender, email, address, phone, userType, password) VALUES (:username,:name,:surname,:dob,:gender,:email,:address,:phone,:userType,:password)');
+					$stmt->execute([
+						':username' => $username,
+						':name' => $firstName,
+						':surname' => $lastName,
+						':dob' => $dob,
+						':gender' => $genderId,
+						':email' => $email,
+						':address' => $address,
+						':phone' => $phone,
+						':userType' => 4,
+						':password' => $password,
+					]);
+					$regSuccess = 'Registration successful. You can now log in.';
+				} catch (Throwable $e) {
+					$regError = $e->getMessage();
+				}
+			}
+		}
+	}
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<title>User Registration</title>
@@ -51,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			background: #f5f5f7;
 			color: #1c1c1c;
 		}
+
 		body {
 			margin: 0;
 			min-height: 100vh;
@@ -59,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			justify-content: center;
 			padding: 1rem;
 		}
+
 		.card {
 			background: #fff;
 			border-radius: 12px;
@@ -66,25 +102,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 			width: min(400px, 100%);
 		}
+
 		h1 {
 			margin-top: 0;
 			font-size: 1.5rem;
 		}
+
 		form {
 			display: flex;
 			flex-direction: column;
 			gap: 1rem;
 		}
+
 		label {
 			font-weight: 600;
 			font-size: 0.95rem;
 		}
-		input, select {
+
+		input,
+		select {
 			padding: 0.75rem;
 			border-radius: 8px;
 			border: 1px solid #d0d0d0;
 			font-size: 1rem;
 		}
+
 		button {
 			padding: 0.85rem;
 			border: none;
@@ -92,32 +134,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			background: #28a745;
 			color: #fff;
 			font-weight: 600;
-			cursor: pointer;
 		}
+
 		.status {
 			padding: 0.75rem;
 			border-radius: 8px;
 			font-size: 0.9rem;
 		}
+
 		.status.error {
 			background: #ffe6e6;
 			color: #cc1f1a;
 		}
+
 		.status.success {
 			background: #e6ffed;
 			color: #0f7b2d;
 		}
+
 		.back-link {
 			margin-top: 1rem;
 			text-align: center;
 			font-size: 0.85rem;
 		}
+
 		.back-link a {
 			color: #4a67f5;
 			text-decoration: underline;
 		}
 	</style>
 </head>
+
 <body>
 	<div class="card">
 		<h1>User Registration</h1>
@@ -141,26 +188,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			</div>
 			<div>
 				<label for="dob">Date of Birth</label>
-				<input type="date" id="dob" name="dob" required>
+				<input type="date" id="dob" name="dob" max="<?= date('Y-m-d'); ?>" required>
 			</div>
 			<div>
 				<label for="gender">Gender</label>
 				<select id="gender" name="gender" required>
 					<option value="">Select Gender</option>
-					<option value="male">Male</option>
-					<option value="female">Female</option>
-					<option value="non-binary">Non-binary</option>
-					<option value="other">Other</option>
+					<?php foreach ($genders as $g): ?>
+						<option value="<?= htmlspecialchars($g['name'], ENT_QUOTES, 'UTF-8') ?>">
+							<?= htmlspecialchars($g['name'], ENT_QUOTES, 'UTF-8') ?></option>
+					<?php endforeach; ?>
 				</select>
 			</div>
-            <div>
-                <label for="address">Address</label>
-                <input type="text" id="address" name="address" placeholder="" required>
-            </div>
-            <div>
-                <label for="phone">Phone</label>
-                <input type="text" id="phone" name="phone" placeholder="" required>
-            </div>
+			<div>
+				<label for="address">Address</label>
+				<input type="text" id="address" name="address" placeholder="" required>
+			</div>
+			<div>
+				<label for="phone">Phone</label>
+				<input type="text" id="phone" name="phone" placeholder="" required>
+			</div>
 			<div>
 				<label for="email">Email</label>
 				<input type="email" id="email" name="email" placeholder="" required>
@@ -176,4 +223,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		</p>
 	</div>
 </body>
+
 </html>
