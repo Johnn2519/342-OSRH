@@ -1,4 +1,0 @@
-{
-  "service": 2,
-  "description": "Vehicle must have child seat anchors",
-  "notes": "Inserts into SERVREQ (service, description) via vehicle_standards.php."}

@@ -1,20 +1,26 @@
 <?php
 declare(strict_types=1);
 
+// Include authentication and database connection
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
+// Require driver or user role
 auth_require_role([3, 4]);
 
+// Get current user
 $user = auth_current_user();
+// Establish database connection
 $pdo = getSqlServerConnection();
 
+// Fetch drivers and recent subtrips
 $drivers = $pdo->query("SELECT userID, name, surname FROM dbo.[USER] WHERE userType = 3 ORDER BY userID")->fetchAll();
 $subTrips = $pdo->query('SELECT TOP 50 subTripID FROM dbo.SUBTRIP ORDER BY subTripID DESC')->fetchAll();
 
 $message = null;
 $error = null;
 
+// Handle POST request for feedback submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subTrip = (int)($_POST['subTrip'] ?? 0);
     $to = (int)($_POST['to'] ?? 0);
@@ -22,10 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rating = (int)($_POST['rating'] ?? 0);
 
     try {
+        // Validate inputs
         if (!$subTrip || !$to || $rating < 1 || $rating > 5) {
             throw new RuntimeException('Subtrip, recipient, and rating 1-5 are required.');
         }
 
+        // Insert feedback
         $stmt = $pdo->prepare('INSERT INTO dbo.FEEDBACK (subTrip, [from], [to], comment, rating) VALUES (:subTrip, :from, :to, :comment, :rating)');
         $stmt->execute([
             ':subTrip' => $subTrip,
@@ -47,6 +55,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	<meta charset="UTF-8">
 	<title>Feedback Submission</title>
 	<link rel="stylesheet" href="css/style.css">
+    <style>
+        input, select, textarea {
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #d0d0d0;
+            font-size: 1rem;
+        }
+        button.btn {
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            background: #4a67f5;
+            color: #fff;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
 	<div class="page-card page">
@@ -76,5 +100,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			<button class="btn" type="submit">Submit feedback</button>
 		</form>
 	</div>
+    <p><a href="user.php">Back</a></p>
 </body>
 </html>

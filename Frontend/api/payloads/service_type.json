@@ -1,7 +1,0 @@
-{
-  "name": "Premium Van",
-  "description": "Large van with extra comfort",
-  "minPayment": 12.50,
-  "moneyRate": 1.85,
-  "unit": "km",
-  "notes": "Inserts into SERVICETYPE (minPayment, description, name, moneyRate, unit)."}

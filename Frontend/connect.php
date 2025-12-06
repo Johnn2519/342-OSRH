@@ -1,13 +1,12 @@
 <?php
 declare(strict_types=1);
 
+// Function to get SQL Server connection
 function getSqlServerConnection(string $database = 'ileont01'): PDO
 {
 	$server = 'mssql.cs.ucy.ac.cy';
 	$dsn = "sqlsrv:Server={$server};Database={$database};TrustServerCertificate=1";
 	$options = [
-		PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-		PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
 	];
 
 	try {

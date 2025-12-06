@@ -1,15 +1,18 @@
 <?php
 declare(strict_types=1);
 
+// Include authentication and database connection
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
+// Require admin or manager role
 auth_require_role([1, 2]);
 
 $error = null;
 $stats = [];
 $byService = [];
 
+// Fetch statistics and trips by service
 try {
     $pdo = getSqlServerConnection();
     $stats = $pdo->query(
@@ -74,6 +77,7 @@ try {
             </div>
         <?php endif; ?>
     </div>
+    <p><a href="admin.php">Back</a></p>
 </body>
 
 </html>

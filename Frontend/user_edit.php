@@ -5,8 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
-// Require driver role
-auth_require_role([3]);
+// Require user role
+auth_require_role([4]);
 
 // Get current user
 $user = auth_current_user();
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <head>
     <meta charset="UTF-8">
-    <title>Edit Driver Information</title>
+    <title>Edit User Information</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         input, select, textarea {
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <body>
     <div class="page-card page">
-        <h1>Edit Driver Information</h1>
+        <h1>Edit User Information</h1>
         <?php if ($error): ?>
             <p class="status error">Error: <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         <?php if ($message): ?>
@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     value="<?= htmlspecialchars($current['address'], ENT_QUOTES, 'UTF-8') ?>" required></label>
             <button class="btn" type="submit">Submit</button>
         </form>
-        <p><a href="driver.php">Back</a></p>
+        <p><a href="user.php">Back</a></p>
     </div>
 </body>
 

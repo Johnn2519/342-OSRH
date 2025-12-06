@@ -1,16 +1,20 @@
 <?php
 declare(strict_types=1);
+// Include authentication functions
 require_once __DIR__ . '/auth.php';
 
+// Start session and require admin or manager role
 auth_start_session();
 auth_require_role([1, 2]);
 
+// Handle logout POST request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     auth_logout();
     header('Location: index.php');
     exit;
 }
 
+// Get current user info
 $current = auth_current_user();
 $user = htmlspecialchars($current['username'] ?? '', ENT_QUOTES, 'UTF-8');
 ?>

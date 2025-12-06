@@ -1,8 +1,11 @@
 <?php
 declare(strict_types=1);
+// Include authentication functions
 require_once __DIR__ . '/auth.php';
+// Require driver role
 auth_require_role([3]);
 
+// Handle logout POST request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     auth_logout();
     header('Location: index.php');
@@ -27,8 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <h1>Driver</h1>
 
         <ul class="grid-links">
-            <li><a href="doc_driver_upload.php">Upload driver documents (DOCDRI)</a></li>
-            <li><a href="vehicle_add.php">Register a vehicle + insurance</a></li>
+            <li><a href="doc_driver_upload.php">Upload driver documents</a></li>
+            <li><a href="vehicle_add.php">Register vehicle</a></li>
             <li><a href="driver_edit.php">Edit your information</a></li>
         </ul>
 

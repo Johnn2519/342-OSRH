@@ -1,16 +1,20 @@
 <?php
 declare(strict_types=1);
 
+// Include authentication and database connection
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
+// Require admin or manager role
 auth_require_role([1, 2]);
 
+// Establish database connection
 $pdo = getSqlServerConnection();
 
 $message = null;
 $error = null;
 
+// Handle POST request for adding service type
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $description = trim($_POST['description'] ?? '');
@@ -19,10 +23,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $unit = trim($_POST['unit'] ?? '');
 
     try {
+        // Validate inputs
         if ($name === '' || $description === '' || $minPayment === '' || !is_numeric($minPayment) || $moneyRate === '' || !is_numeric($moneyRate) || $unit === '') {
             throw new RuntimeException('Fill all fields with valid data.');
         }
 
+        // Insert service type
         $stmt = $pdo->prepare('INSERT INTO dbo.SERVICETYPE (minPayment, description, name, moneyRate, unit) VALUES (:minPayment,:description,:name,:moneyRate,:unit)');
         $stmt->execute([
             ':minPayment' => (float) $minPayment,
@@ -37,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Fetch existing service types
 $types = $pdo->query('SELECT serviceTypeID, name, description, minPayment, moneyRate, unit FROM dbo.SERVICETYPE ORDER BY serviceTypeID')->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -47,6 +54,22 @@ $types = $pdo->query('SELECT serviceTypeID, name, description, minPayment, money
     <title>Service Types</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        input, select, textarea {
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #d0d0d0;
+            font-size: 1rem;
+        }
+        button.btn {
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            background: #4a67f5;
+            color: #fff;
+            font-weight: 600;
+        }
+    </style>
 </head>
 
 <body>
@@ -92,6 +115,7 @@ $types = $pdo->query('SELECT serviceTypeID, name, description, minPayment, money
             </tbody>
         </table>
     </div>
+    <p><a href="admin.php">Back</a></p>
 </body>
 
 </html>

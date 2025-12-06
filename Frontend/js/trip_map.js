@@ -1,4 +1,5 @@
 (() => {
+  // Initialize the map when DOM is ready
   const initMap = () => {
     console.log("Initializing map...");
     const mapEl = document.getElementById("map");
@@ -14,6 +15,7 @@
 
     let map;
     try {
+      // Create map centered on Cyprus
       map = L.map(mapEl).setView([35.1667, 33.3667], 11);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap contributors",
@@ -25,15 +27,18 @@
       return;
     }
 
+    // Variables for active pin type and markers
     let active = "start";
     let startMarker = null;
     let endMarker = null;
 
+    // Get form input elements for coordinates
     const startLng = document.querySelector('input[name="startLong"]');
     const startLat = document.querySelector('input[name="startLat"]');
     const endLng = document.querySelector('input[name="endtLong"]');
     const endLat = document.querySelector('input[name="endLat"]');
 
+    // Update form fields with marker coordinates
     const updateFields = (type, latlng) => {
       const lng = latlng.lng.toFixed(6);
       const lat = latlng.lat.toFixed(6);
@@ -46,6 +51,7 @@
       }
     };
 
+    // Create and place a draggable marker
     const setMarker = (type, latlng) => {
       const label = type === "start" ? "Start" : "Destination";
       const marker = L.marker(latlng, { draggable: true })
@@ -55,6 +61,7 @@
       return marker;
     };
 
+    // Handle map click to place markers
     map.on("click", (e) => {
       if (active === "start") {
         if (startMarker) map.removeLayer(startMarker);
@@ -67,12 +74,14 @@
       }
     });
 
+    // Handle radio button changes for pin target
     document.querySelectorAll('input[name="pinTarget"]').forEach((radio) => {
       radio.addEventListener("change", () => {
         active = radio.value === "end" ? "end" : "start";
       });
     });
 
+    // Set active pin when focusing on start fields
     [startLng, startLat].forEach(
       (el) =>
         el &&
@@ -80,6 +89,7 @@
           active = "start";
         })
     );
+    // Set active pin when focusing on end fields
     [endLng, endLat].forEach(
       (el) =>
         el &&
@@ -88,6 +98,7 @@
         })
     );
 
+    // Ensure map renders properly on load and resize
     map.whenReady(() => {
       map.invalidateSize();
       console.log("Map ready and invalidated");
@@ -106,6 +117,7 @@
     }, 1000);
   };
 
+  // Initialize map when DOM is ready
   if (document.readyState === "loading") {
     window.addEventListener("DOMContentLoaded", initMap);
   } else {

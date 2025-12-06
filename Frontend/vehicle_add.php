@@ -1,18 +1,22 @@
 <?php
 declare(strict_types=1);
 
+// Include authentication and database connection
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
+// Require driver role
 auth_require_role([3]);
 
+// Get current user
 $user = auth_current_user();
+// Establish database connection
 $pdo = getSqlServerConnection();
 
+// Fetch vehicle types, geofences, document statuses, and types
 $vehTypes = $pdo->query('SELECT vehType, name FROM dbo.VEHTYPE ORDER BY vehType')->fetchAll();
 $geofences = $pdo->query('SELECT geoID, name, longMin, longMax, latMin, latMax FROM dbo.GEOFENCE ORDER BY geoID')->fetchAll();
 $docStatuses = $pdo->query('SELECT docStatusID, name FROM dbo.DOCSTATUS ORDER BY docStatusID')->fetchAll();
-
 $docTypes = $pdo->query("SELECT docTypeID, name FROM dbo.DOCTYPE WHERE name LIKE '%insurance%' ORDER BY docTypeID")->fetchAll();
 if (!$docTypes) {
     $docTypes = $pdo->query('SELECT docTypeID, name FROM dbo.DOCTYPE ORDER BY docTypeID')->fetchAll();
@@ -23,7 +27,9 @@ $error = null;
 $newVehID = null;
 $newDocID = null;
 
+// Handle POST request for adding vehicle and document
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Extract and sanitize POST data
     $insuranceNum = (int) ($_POST['insuranceNum'] ?? 0);
     $seatNum = $_POST['seatNum'] !== '' ? (int) $_POST['seatNum'] : null;
     $kgCapacity = $_POST['kgCapacity'] !== '' ? (float) $_POST['kgCapacity'] : null;
@@ -42,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $docCheckedBy = $_POST['docCheckedBy'] !== '' ? (int) $_POST['docCheckedBy'] : null;
 
     try {
+        // Validate required fields
         if (!$insuranceNum || !$geoID || !$vehType || !$plate) {
             throw new RuntimeException('Insurance number, geofence, vehicle type, and plate are required.');
         }
@@ -49,8 +56,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Insurance document path, issued date, type, and status are required.');
         }
 
+        // Begin transaction
         $pdo->beginTransaction();
 
+        // Insert vehicle
         $vehStmt = $pdo->prepare('INSERT INTO dbo.VEHICLE (insuranceNum, seatNum, kgCapacity, volCapacity, geoID, vehType, driver, available, ready, plate) VALUES (:insuranceNum, :seatNum, :kgCapacity, :volCapacity, :geoID, :vehType, :driver, :available, :ready, :plate)');
         $vehStmt->execute([
             ':insuranceNum' => $insuranceNum,
@@ -66,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         $newVehID = (int) $pdo->lastInsertId();
 
+        // Insert document
         $docStmt = $pdo->prepare('INSERT INTO dbo.DOCVEH (vehicleID, path, issued, expires, docType, checkedBy, status) VALUES (:vehicleID, :path, :issued, :expires, :docType, :checkedBy, :status)');
         $docStmt->execute([
             ':vehicleID' => $newVehID,
@@ -78,9 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
         $newDocID = (int) $pdo->lastInsertId();
 
+        // Commit transaction
         $pdo->commit();
         $message = 'Vehicle created (ID ' . $newVehID . ') with insurance document (ID ' . $newDocID . ').';
     } catch (Throwable $e) {
+        // Rollback on error
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
@@ -96,6 +108,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Add Vehicle</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        input,
+        select,
+        textarea {
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #d0d0d0;
+            font-size: 1rem;
+        }
+
+        button.btn {
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            background: #4a67f5;
+            color: #fff;
+            font-weight: 600;
+        }
+    </style>
 </head>
 
 <body>
@@ -173,6 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button class="btn" type="submit">Create vehicle</button>
         </form>
     </div>
+    <p><a href="driver.php">Back</a></p>
 </body>
 
 </html>

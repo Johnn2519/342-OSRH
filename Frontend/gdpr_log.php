@@ -1,14 +1,17 @@
 <?php
 declare(strict_types=1);
 
+// Include authentication and database connection
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
+// Require admin or manager role
 auth_require_role([1, 2]);
 
 $error = null;
 $rows = [];
 
+// Fetch GDPR logs
 try {
     $pdo = getSqlServerConnection();
     $sql = 'SELECT G.logID, GA.name AS actionName, GS.name AS statusName, G.entryDate, G.finishedDate,
@@ -68,6 +71,7 @@ try {
             </table>
         <?php endif; ?>
     </div>
+    <p><a href="admin.php">Back</a></p>
 </body>
 
 </html>

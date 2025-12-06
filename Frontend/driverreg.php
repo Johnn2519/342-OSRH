@@ -1,100 +1,114 @@
 <?php
 declare(strict_types=1);
 
+// Include database connection
 require_once __DIR__ . '/connect.php';
 
 $regError = null;
 $regSuccess = null;
 
+// Establish database connection
 $pdo = getSqlServerConnection();
+// Fetch genders, document statuses, and types
 $genders = $pdo->query('SELECT genderID, name FROM dbo.GENDER ORDER BY genderID')->fetchAll();
 $docStatuses = $pdo->query('SELECT docStatusID, name FROM dbo.DOCSTATUS ORDER BY docStatusID')->fetchAll();
 $docTypes = $pdo->query('SELECT docTypeID, name FROM dbo.DOCTYPE ORDER BY docTypeID')->fetchAll();
 
+// Handle POST request for driver registration
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-	$firstName = trim($_POST['first_name'] ?? '');
-	$lastName = trim($_POST['last_name'] ?? '');
-	$username = trim($_POST['username'] ?? '');
-	$dob = trim($_POST['dob'] ?? '');
-	$gender = $_POST['gender'] ?? '';
-	$address = trim($_POST['address'] ?? '');
-	$phone = trim($_POST['phone'] ?? '');
-	$email = trim($_POST['email'] ?? '');
-	$password = $_POST['password'] ?? '';
-	$docPath = trim($_POST['doc_path'] ?? '');
-	$dateIssued = trim($_POST['date_issued'] ?? '');
-	$expiryDate = trim($_POST['expiry_date'] ?? '');
-	$docStatus = isset($_POST['doc_status']) ? (int) $_POST['doc_status'] : null;
-	$docType = isset($_POST['doc_type']) ? (int) $_POST['doc_type'] : null;
+    // Extract and sanitize POST data
+    $firstName = trim($_POST['first_name'] ?? '');
+    $lastName = trim($_POST['last_name'] ?? '');
+    $username = trim($_POST['username'] ?? '');
+    $dob = trim($_POST['dob'] ?? '');
+    $gender = $_POST['gender'] ?? '';
+    $address = trim($_POST['address'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $docPath = trim($_POST['doc_path'] ?? '');
+    $dateIssued = trim($_POST['date_issued'] ?? '');
+    $expiryDate = trim($_POST['expiry_date'] ?? '');
+    $docStatus = isset($_POST['doc_status']) ? (int) $_POST['doc_status'] : null;
+    $docType = isset($_POST['doc_type']) ? (int) $_POST['doc_type'] : null;
 
-	if ($firstName === '' || $lastName === '' || $username === '' || $dob === '' || $gender === '' || $address === '' || $phone === '' || $email === '' || $password === '') {
-		$regError = 'Please fill in all required fields.';
-	} elseif (!preg_match('/^[a-zA-Z0-9]+$/', $username)) {
-		$regError = 'Username must contain only letters and numbers.';
-	} else {
-		$dobObj = DateTime::createFromFormat('Y-m-d', $dob);
-		$dobValid = $dobObj && $dobObj->format('Y-m-d') === $dob;
-		if (!$dobValid) {
-			$regError = 'Please enter a valid date of birth.';
-		} elseif ($dobObj > new DateTime('today')) {
-			$regError = 'Date of birth must be in the past.';
-		} else {
-			$phoneDigits = preg_replace('/\D/', '', $phone);
-			if (!preg_match('/^[0-9+\-\s\(\)]+$/', $phone) || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
-				$regError = 'Please enter a valid phone number (7–15 digits).';
-			} elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-				$regError = 'Please enter a valid email address.';
-			} elseif (strlen($password) < 8) {
-				$regError = 'Password must be at least 8 characters long.';
-			} else {
-				$genderId = null;
-				foreach ($genders as $g) {
-					if (strcasecmp($g['name'], $gender) === 0) {
-						$genderId = (int) $g['genderID'];
-						break;
-					}
-				}
-				$genderId = $genderId ?? (int) ($genders[0]['genderID'] ?? 1);
+    // Basic validation
+    if ($firstName === '' || $lastName === '' || $username === '' || $dob === '' || $gender === '' || $address === '' || $phone === '' || $email === '' || $password === '') {
+        $regError = 'Please fill in all required fields.';
+    } elseif (!preg_match('/^[a-zA-Z0-9]+$/', $username)) {
+        $regError = 'Username must contain only letters and numbers.';
+    } else {
+        // Validate date of birth
+        $dobObj = DateTime::createFromFormat('Y-m-d', $dob);
+        $dobValid = $dobObj && $dobObj->format('Y-m-d') === $dob;
+        if (!$dobValid) {
+            $regError = 'Please enter a valid date of birth.';
+        } elseif ($dobObj > new DateTime('today')) {
+            $regError = 'Date of birth must be in the past.';
+        } else {
+            // Validate phone number
+            $phoneDigits = preg_replace('/\D/', '', $phone);
+            if (!preg_match('/^[0-9+\-\s\(\)]+$/', $phone) || strlen($phoneDigits) < 7 || strlen($phoneDigits) > 15) {
+                $regError = 'Please enter a valid phone number (7–15 digits).';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $regError = 'Please enter a valid email address.';
+            } elseif (strlen($password) < 8) {
+                $regError = 'Password must be at least 8 characters long.';
+            } else {
+                // Find gender ID
+                $genderId = null;
+                foreach ($genders as $g) {
+                    if (strcasecmp($g['name'], $gender) === 0) {
+                        $genderId = (int) $g['genderID'];
+                        break;
+                    }
+                }
+                $genderId = $genderId ?? (int) ($genders[0]['genderID'] ?? 1);
 
-				try {
-					$pdo->beginTransaction();
-					$stmt = $pdo->prepare('INSERT INTO dbo.[USER] (username, name, surname, dob, gender, email, address, phone, userType, password) VALUES (:username,:name,:surname,:dob,:gender,:email,:address,:phone,:userType,:password)');
-					$stmt->execute([
-						':username' => $username,
-						':name' => $firstName,
-						':surname' => $lastName,
-						':dob' => $dob,
-						':gender' => $genderId,
-						':email' => $email,
-						':address' => $address,
-						':phone' => $phone,
-						':userType' => 3,
-						':password' => $password,
-					]);
-					$driverId = (int) $pdo->lastInsertId();
+                try {
+                    // Begin transaction
+                    $pdo->beginTransaction();
+                    // Insert user
+                    $stmt = $pdo->prepare('INSERT INTO dbo.[USER] (username, name, surname, dob, gender, email, address, phone, userType, password) VALUES (:username,:name,:surname,:dob,:gender,:email,:address,:phone,:userType,:password)');
+                    $stmt->execute([
+                        ':username' => $username,
+                        ':name' => $firstName,
+                        ':surname' => $lastName,
+                        ':dob' => $dob,
+                        ':gender' => $genderId,
+                        ':email' => $email,
+                        ':address' => $address,
+                        ':phone' => $phone,
+                        ':userType' => 3,
+                        ':password' => $password,
+                    ]);
+                    $driverId = (int) $pdo->lastInsertId();
 
-					if ($docPath !== '' && $dateIssued !== '' && $docType) {
-						$docStatus = $docStatus ?? (int) ($docStatuses[0]['docStatusID'] ?? 1);
-						$pdo->prepare('INSERT INTO dbo.DOCDRI (driverID, path, issued, expires, docType, checkedBy, status) VALUES (:driverID,:path,:issued,:expires,:docType,NULL,:status)')
-							->execute([
-								':driverID' => $driverId,
-								':path' => $docPath,
-								':issued' => $dateIssued,
-								':expires' => $expiryDate !== '' ? $expiryDate : null,
-								':docType' => $docType,
-								':status' => $docStatus,
-							]);
-					}
+                    // Insert optional document
+                    if ($docPath !== '' && $dateIssued !== '' && $docType) {
+                        $docStatus = $docStatus ?? (int) ($docStatuses[0]['docStatusID'] ?? 1);
+                        $pdo->prepare('INSERT INTO dbo.DOCDRI (driverID, path, issued, expires, docType, checkedBy, status) VALUES (:driverID,:path,:issued,:expires,:docType,NULL,:status)')
+                            ->execute([
+                                ':driverID' => $driverId,
+                                ':path' => $docPath,
+                                ':issued' => $dateIssued,
+                                ':expires' => $expiryDate !== '' ? $expiryDate : null,
+                                ':docType' => $docType,
+                                ':status' => $docStatus,
+                            ]);
+                    }
 
-					$pdo->commit();
-					$regSuccess = 'Registration successful. You can now log in.';
-				} catch (Throwable $e) {
-					$pdo->rollBack();
-					$regError = $e->getMessage();
-				}
-			}
-		}
-	}
+                    // Commit transaction
+                    $pdo->commit();
+                    $regSuccess = 'Registration successful. You can now log in.';
+                } catch (Throwable $e) {
+                    // Rollback on error
+                    $pdo->rollBack();
+                    $regError = $e->getMessage();
+                }
+            }
+        }
+    }
 }
 ?>
 <!DOCTYPE html>

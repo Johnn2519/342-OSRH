@@ -1,17 +1,23 @@
 <?php
 declare(strict_types=1);
 
+// Include authentication and database connection
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/connect.php';
 
+// Require admin, manager, or user role
 auth_require_role([1, 4]);
 
+// Get current user
 $user = auth_current_user();
+// Establish database connection
 $pdo = getSqlServerConnection();
 
+// Fetch statuses and service types
 $statuses = $pdo->query('SELECT tripStatusID, name FROM dbo.TRIPSTATUS ORDER BY tripStatusID')->fetchAll();
 $serviceTypes = $pdo->query('SELECT serviceTypeID, name FROM dbo.SERVICETYPE ORDER BY serviceTypeID')->fetchAll();
 
+// Find requested status ID
 $requestedId = null;
 foreach ($statuses as $s) {
     if (strtolower($s['name']) === 'requested') {
@@ -23,7 +29,9 @@ foreach ($statuses as $s) {
 $message = null;
 $error = null;
 
+// Handle POST request for trip request
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Extract and validate data
     $data = [
         'startLong' => $_POST['startLong'] ?? '',
         'startLat' => $_POST['startLat'] ?? '',
@@ -39,10 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
 
     try {
+        // Validate required fields
         if ($data['startLong'] === '' || !is_numeric($data['startLong']) || $data['startLat'] === '' || !is_numeric($data['startLat']) || $data['endtLong'] === '' || !is_numeric($data['endtLong']) || $data['endLat'] === '' || !is_numeric($data['endLat']) || !$data['status'] || !$data['serviceType']) {
             throw new RuntimeException('Please fill all required fields with valid data.');
         }
 
+        // Insert trip into database
         $stmt = $pdo->prepare('INSERT INTO dbo.TRIP (startLong, startLat, endtLong, endLat, startTime, endTime, status, seatNum, kgNum, volNum, serviceType, requestedBy) VALUES (:startLong, :startLat, :endtLong, :endLat, :startTime, :endTime, :status, :seatNum, :kgNum, :volNum, :serviceType, :requestedBy)');
         $stmt->execute([
             ':startLong' => (float) $data['startLong'],
@@ -92,6 +102,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-bottom: 0.5rem;
             align-items: center;
             flex-wrap: wrap;
+        }
+
+        input,
+        select,
+        textarea {
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid #d0d0d0;
+            font-size: 1rem;
+        }
+
+        button.btn {
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            background: #4a67f5;
+            color: #fff;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -146,5 +174,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
     <script src="js/trip_map.js" defer></script>
 </body>
-
+    <p><a href="user.php">Back</a></p>
 </html>
